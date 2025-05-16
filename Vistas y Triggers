@@ -1,0 +1,195 @@
+// Vistas
+
+CREATE VIEW vista_historial_vehiculo AS
+SELECT 
+    t.historial_id,
+    t.placa,
+    v.modelo,
+    v.color AS color_actual,
+    t.color AS color_anterior,
+    c.nombre AS nombre_cliente,
+    t.fecha_cambio,
+    t.motivo_cambio,
+    tr.nombre AS nombre_trabajador
+FROM transacciones t
+JOIN vehiculo v ON t.placa = v.placa
+JOIN cliente c ON t.cliente_id = c.cliente_id
+JOIN trabajador tr ON t.trabajador_id = tr.trabajador_id;
+
+CREATE VIEW vista_servicios AS
+SELECT 
+    s.seguro_id,
+    s.placa,
+    v.modelo,
+    c.nombre AS nombre_cliente,
+    t.nombre AS nombre_trabajador,
+    ts.descripcion AS tipo_servicio,
+    s.fecha_inicio,
+    s.fecha_vencimiento,
+    s.descripcion_servicio,
+    s.valor
+FROM servicio s
+JOIN vehiculo v ON s.placa = v.placa
+JOIN cliente c ON v.cliente_id = c.cliente_id
+JOIN trabajador t ON s.trabajador_id = t.trabajador_id
+JOIN tipo_servicio ts ON s.tipo_servicio_id = ts.tipo_servicio_id;
+
+CREATE VIEW vista_seguros_vehiculo AS
+SELECT 
+    se.seguro_id,
+    se.placa,
+    v.modelo,
+    se.tipo_seguro,
+    se.fecha_inicio,
+    se.fecha_vencimiento
+FROM seguro se
+JOIN vehiculo v ON se.placa = v.placa;
+
+CREATE VIEW vista_vehiculos_cliente_seguro AS
+SELECT 
+    v.placa,
+    v.modelo,
+    v.color,
+    v.tipo_vehiculo,
+    v.estado,
+    v.numero_chasis,
+    v.marca,
+    c.nombre AS nombre_cliente,
+    s.tipo_seguro,
+    s.fecha_inicio AS fecha_inicio_seguro,
+    s.fecha_vencimiento AS fecha_vencimiento_seguro
+FROM vehiculo v
+JOIN cliente c ON v.cliente_id = c.cliente_id
+LEFT JOIN seguro s ON v.placa = s.placa;
+
+CREATE VIEW vista_trabajadores_servicios AS
+SELECT 
+    t.trabajador_id,
+    t.nombre AS nombre_trabajador,
+    t.cargo,
+    COUNT(s.seguro_id) AS cantidad_servicios
+FROM trabajador t
+LEFT JOIN servicio s ON t.trabajador_id = s.trabajador_id
+GROUP BY t.trabajador_id, t.nombre, t.cargo;
+
+CREATE VIEW vista_licencias_por_vencer AS
+SELECT 
+    l.licencia_id,
+    l.cliente_id,
+    c.nombre AS nombre_cliente,
+    l.fecha_vencimiento,
+    DATEDIFF(l.fecha_vencimiento, CURDATE()) AS dias_restantes
+FROM licencia l
+JOIN cliente c ON l.cliente_id = c.cliente_id
+WHERE DATEDIFF(l.fecha_vencimiento, CURDATE()) <= 30;
+
+
+//TRIGGERS
+CREATE TRIGGER trg_log_cambios_vehiculo
+AFTER UPDATE ON vehiculo
+FOR EACH ROW
+BEGIN
+    IF OLD.motor <> NEW.motor OR OLD.color <> NEW.color THEN
+        INSERT INTO log (
+            placa, fecha_cambio, motor, color, trabajador_id, cliente_id, motivo_cambio
+        ) VALUES (
+            OLD.placa,
+            NOW(),
+            OLD.motor,
+            OLD.color,
+            NULL, -- asignar según el contexto
+            OLD.cliente_id,
+            'Cambio de motor o color'
+        );
+    END IF;
+END;
+
+
+CREATE TRIGGER trg_validar_fecha_servicio
+BEFORE INSERT ON servicio
+FOR EACH ROW
+BEGIN
+    IF NEW.fecha_vencimiento <= NEW.fecha_inicio THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'La fecha de vencimiento debe ser posterior a la fecha de inicio.';
+    END IF;
+END;
+
+CREATE TRIGGER trg_historial_transacciones
+AFTER UPDATE ON transacciones
+FOR EACH ROW
+BEGIN
+    INSERT INTO log (
+        placa, fecha_cambio, motor, color, trabajador_id, cliente_id, motivo_cambio
+    ) VALUES (
+        OLD.placa,
+        NOW(),
+        OLD.motor,
+        OLD.color,
+        OLD.trabajador_id,
+        OLD.cliente_id,
+        CONCAT('Cambio en transacción: ', OLD.motivo_cambio)
+    );
+END;
+
+CREATE TRIGGER trg_log_insert_transaccion
+AFTER INSERT ON transacciones
+FOR EACH ROW
+BEGIN
+    INSERT INTO log (
+        placa, fecha_cambio, motor, color, trabajador_id, cliente_id, motivo_cambio
+    ) VALUES (
+        NEW.placa,
+        NEW.fecha_cambio,
+        NEW.motor,
+        NEW.color,
+        NEW.trabajador_id,
+        NEW.cliente_id,
+        NEW.motivo_cambio
+    );
+END;
+
+
+CREATE TRIGGER trg_chasis_unico
+BEFORE INSERT ON vehiculo
+FOR EACH ROW
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM vehiculo WHERE numero_chasis = NEW.numero_chasis
+    ) THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Ya existe un vehículo con ese número de chasis.';
+    END IF;
+END;
+
+
+CREATE TRIGGER trg_log_nuevo_seguro
+AFTER INSERT ON seguro
+FOR EACH ROW
+BEGIN
+    INSERT INTO log (
+        placa,
+        fecha_cambio,
+        motor,
+        color,
+        trabajador_id,
+        cliente_id,
+        motivo_cambio
+    )
+    SELECT 
+        NEW.placa,
+        NEW.fecha_inicio,
+        v.motor,
+        v.color,
+        NULL,
+        v.cliente_id,
+        CONCAT('Nuevo seguro tipo ', NEW.tipo_seguro)
+    FROM vehiculo v
+    WHERE v.placa = NEW.placa;
+END;
+
+
+
+
+
+
