@@ -1,0 +1,120 @@
+CREATE DATABASE IF NOT EXISTS taller_mecanico;
+USE taller_mecanico;
+
+-- Tabla: cliente
+CREATE TABLE cliente (
+    cliente_id INT PRIMARY KEY AUTO_INCREMENT,
+    cedula VARCHAR(15),
+    nombre VARCHAR(50),
+    direccion VARCHAR(50),
+    telefono VARCHAR(15),
+    correo VARCHAR(50)
+);
+
+-- Tabla: trabajador
+CREATE TABLE trabajador (
+    trabajador_id INT PRIMARY KEY AUTO_INCREMENT,
+    cedula VARCHAR(15),
+    nombre VARCHAR(50),
+    cargo VARCHAR(50),
+    telefono VARCHAR(20),
+    fecha_ingreso DATE,
+    estado VARCHAR(10)
+);
+
+-- Tabla: vehiculo
+CREATE TABLE vehiculo (
+    placa VARCHAR(10) PRIMARY KEY,
+    modelo VARCHAR(50),
+    color VARCHAR(50),
+    tipo_vehiculo VARCHAR(50),
+    estado VARCHAR(50),
+    numero_chasis VARCHAR(15),
+    marca VARCHAR(15),
+    cliente_id INT,
+    FOREIGN KEY (cliente_id) REFERENCES cliente(cliente_id)
+);
+
+-- Tabla: licencia
+CREATE TABLE licencia (
+    licencia_id INT PRIMARY KEY AUTO_INCREMENT,
+    cliente_id INT,
+    fecha_expedicion DATE,
+    fecha_vencimiento DATE,
+    ciudad VARCHAR(30),
+    categoria VARCHAR(15),
+    FOREIGN KEY (cliente_id) REFERENCES cliente(cliente_id)
+);
+
+-- Tabla: seguro
+CREATE TABLE seguro (
+    seguro_id INT PRIMARY KEY AUTO_INCREMENT,
+    placa VARCHAR(10),
+    tipo_seguro VARCHAR(30),
+    fecha_inicio DATE,
+    fecha_vencimiento DATE,
+    FOREIGN KEY (placa) REFERENCES vehiculo(placa)
+);
+
+-- Tabla: tipo_servicio
+CREATE TABLE tipo_servicio (
+    tipo_servicio_id INT PRIMARY KEY AUTO_INCREMENT,
+    nombre VARCHAR(50)
+);
+
+-- Tabla: servicio
+CREATE TABLE servicio (
+    seguro_id INT,
+    placa VARCHAR(10),
+    trabajador_id INT,
+    tipo_servicio_id INT,
+    fecha_inicio DATE,
+    fecha_vencimiento DATE,
+    descripcion VARCHAR(150),
+    valor DOUBLE,
+    PRIMARY KEY (seguro_id),
+    FOREIGN KEY (seguro_id) REFERENCES seguro(seguro_id),
+    FOREIGN KEY (placa) REFERENCES vehiculo(placa),
+    FOREIGN KEY (trabajador_id) REFERENCES trabajador(trabajador_id),
+    FOREIGN KEY (tipo_servicio_id) REFERENCES tipo_servicio(tipo_servicio_id)
+);
+
+-- Tabla: transacciones
+CREATE TABLE transacciones (
+    historial_id INT PRIMARY KEY AUTO_INCREMENT,
+    placa VARCHAR(10),
+    fecha_cambio DATETIME,
+    motor VARCHAR(50),
+    color VARCHAR(50),
+    trabajador_id INT,
+    motivo_cambio VARCHAR(100),
+    cliente_id INT,
+    FOREIGN KEY (placa) REFERENCES vehiculo(placa),
+    FOREIGN KEY (trabajador_id) REFERENCES trabajador(trabajador_id),
+    FOREIGN KEY (cliente_id) REFERENCES cliente(cliente_id)
+);
+
+-- Tabla: log
+CREATE TABLE log (
+    log_id INT PRIMARY KEY AUTO_INCREMENT,
+    placa VARCHAR(10),
+    fecha_cambio DATETIME,
+    motor VARCHAR(50),
+    color VARCHAR(50),
+    trabajador_id INT,
+    motivo_cambio VARCHAR(100),
+    cliente_id INT,
+    FOREIGN KEY (placa) REFERENCES vehiculo(placa),
+    FOREIGN KEY (trabajador_id) REFERENCES trabajador(trabajador_id),
+    FOREIGN KEY (cliente_id) REFERENCES cliente(cliente_id)
+);
+
+-- Tabla: tecno_mecanica
+CREATE TABLE tecno_mecanica (
+    tecno_id INT PRIMARY KEY AUTO_INCREMENT,
+    placa VARCHAR(10),
+    tipo_seguro VARCHAR(30),
+    fecha_inicio DATE,
+    fecha_vencimiento DATE,
+    FOREIGN KEY (placa) REFERENCES vehiculo(placa)
+);
